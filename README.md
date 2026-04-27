@@ -50,7 +50,7 @@ The Evaluator and Creator loop up to 3 times until the content passes all safety
 
 - **Runtime:** Node.js + TypeScript
 - **Server:** Fastify
-- **AI:** Vercel AI SDK + Google Gemini (`gemini-2.5-flash-lite`)
+- **AI:** Vercel AI SDK + Google Gemini (`gemini-2.5-flash-lite`, `gemini-2.5-flash`)
 - **Validation:** Zod (structured AI outputs + schema enforcement)
 
 ## Project Structure
@@ -89,13 +89,11 @@ curl -X POST http://localhost:3000/api/orchestrate \
 
 The pipeline will run through all three agents and return the approved content (or tell you it couldn't get it compliant in 3 tries).
 
-## What the Evaluator Checks
+## What the Evaluator Catches
 
-- ❌ Aggressive sales phrases (`"Buy now"`, `"Hurry"`, `"Limited offer"`)
-- ❌ Unverified claims (`"best"`, `"fastest"`, `"revolutionize"`)
-- ❌ Unprofessional tone (slang, hyperbole)
-- ✅ Clean, professional, corporate-ready copy
+- 🚫 Blocks aggressive sales phrases (`"Buy now"`, `"Hurry"`, `"Limited offer"`)
+- 🚫 Blocks unverified claims (`"best"`, `"fastest"`, `"revolutionize"`)
+- 🚫 Blocks unprofessional tone (slang, hyperbole)
+- ✅ Ensures clean, professional, corporate-ready copy
 
 ---
-
-Built as a learning project exploring multi-agent AI architectures with TypeScript.
