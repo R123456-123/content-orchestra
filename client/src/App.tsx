@@ -1,14 +1,8 @@
-import { useState, useMemo } from 'react';
-import { ConnectionProvider, WalletProvider } from '@solana/wallet-adapter-react';
-import { WalletModalProvider, WalletMultiButton } from '@solana/wallet-adapter-react-ui';
-import '@solana/wallet-adapter-react-ui/styles.css';
-
-// Using Phantom Wallet for the hackathon MVP
-import { PhantomWalletAdapter } from '@solana/wallet-adapter-wallets';
+import { useState } from 'react';
 
 type PipelineStage = 'IDLE' | 'KNOWLEDGE' | 'CREATOR' | 'EVALUATOR' | 'COMPLETE';
 
-function ContentOrchestraApp() {
+function App() {
   const [rawData, setRawData] = useState("INTERNAL MEMO: Project Phoenix is launching Q3. It's a cloud DB. Super fast queries (under 10ms). But it's really expensive, so target enterprise CTOs who have big budgets. Don't mention the price directly.");
   const [stage, setStage] = useState<PipelineStage>('IDLE');
   const [result, setResult] = useState<any>(null);
@@ -17,7 +11,6 @@ function ContentOrchestraApp() {
     setStage('KNOWLEDGE');
     setResult(null);
 
-    // Simulate agent steps visually for the UI
     setTimeout(() => setStage('CREATOR'), 2000);
     setTimeout(() => setStage('EVALUATOR'), 4000);
 
@@ -30,22 +23,21 @@ function ContentOrchestraApp() {
       });
 
       const data = await response.json();
-
       setStage('COMPLETE');
       setResult(data);
 
     } catch (error) {
       console.error("Pipeline failed", error);
       setStage('IDLE');
-      alert("Failed to connect to Content Orchestra backend. Make sure the fastify server is running on port 3000!");
+      alert("Failed to connect to Content Orchestra backend. Make sure the Fastify server is running!");
     }
   };
 
-  const getStepClass = (stepName: PipelineStage, targetStage: PipelineStage) => {
-    const stages = ['IDLE', 'KNOWLEDGE', 'CREATOR', 'EVALUATOR', 'COMPLETE'];
+  const getStepClass = (targetStage: PipelineStage) => {
+    const stages: PipelineStage[] = ['IDLE', 'KNOWLEDGE', 'CREATOR', 'EVALUATOR', 'COMPLETE'];
     const currentIndex = stages.indexOf(stage);
     const targetIndex = stages.indexOf(targetStage);
-
+    
     if (currentIndex > targetIndex) return "agent-step step-complete";
     if (currentIndex === targetIndex) return "agent-step step-active";
     return "agent-step";
@@ -55,21 +47,22 @@ function ContentOrchestraApp() {
     <div className="app-container">
       <header className="header">
         <div className="logo-text">Content<span className="logo-accent">Orchestra</span></div>
-        <WalletMultiButton />
+        <div className="status-badge">
+          {stage === 'IDLE' ? '⚡ Ready' : stage === 'COMPLETE' ? '✅ Done' : '🔄 Running'}
+        </div>
       </header>
 
       <div className="main-grid">
-        {/* Left Column: Input */}
         <div className="glass-panel">
           <h2 className="panel-title">📄 Raw Data Source</h2>
-          <textarea
+          <textarea 
             className="input-area"
             value={rawData}
             onChange={(e) => setRawData(e.target.value)}
             placeholder="Paste your internal memo, raw data, or unformatted text here..."
           />
-          <button
-            className="btn-primary"
+          <button 
+            className="btn-primary" 
             onClick={runPipeline}
             disabled={stage !== 'IDLE' && stage !== 'COMPLETE'}
           >
@@ -81,12 +74,11 @@ function ContentOrchestraApp() {
           </button>
         </div>
 
-        {/* Right Column: Visualizer & Output */}
         <div className="glass-panel">
           <h2 className="panel-title">🧠 Agent Pipeline</h2>
-
+          
           <div className="visualizer">
-            <div className={getStepClass(stage, 'KNOWLEDGE')}>
+            <div className={getStepClass('KNOWLEDGE')}>
               <div className="step-indicator"></div>
               <div className="step-content">
                 <div className="step-title">Knowledge Agent</div>
@@ -94,7 +86,7 @@ function ContentOrchestraApp() {
               </div>
             </div>
 
-            <div className={getStepClass(stage, 'CREATOR')}>
+            <div className={getStepClass('CREATOR')}>
               <div className="step-indicator"></div>
               <div className="step-content">
                 <div className="step-title">Creator Agent</div>
@@ -102,7 +94,7 @@ function ContentOrchestraApp() {
               </div>
             </div>
 
-            <div className={getStepClass(stage, 'EVALUATOR')}>
+            <div className={getStepClass('EVALUATOR')}>
               <div className="step-indicator"></div>
               <div className="step-content">
                 <div className="step-title">Governance Agent</div>
@@ -125,21 +117,6 @@ function ContentOrchestraApp() {
         </div>
       </div>
     </div>
-  );
-}
-
-function App() {
-  const endpoint = "https://api.mainnet-beta.solana.com";
-  const wallets = useMemo(() => [new PhantomWalletAdapter()], []);
-
-  return (
-    <ConnectionProvider endpoint={endpoint}>
-      <WalletProvider wallets={wallets} autoConnect>
-        <WalletModalProvider>
-          <ContentOrchestraApp />
-        </WalletModalProvider>
-      </WalletProvider>
-    </ConnectionProvider>
   );
 }
 
