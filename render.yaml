@@ -1,0 +1,12 @@
+# Backend (Render)
+services:
+  - type: web
+    name: content-orchestra-api
+    runtime: node
+    buildCommand: npm install
+    startCommand: npx tsx src/server.ts
+    envVars:
+      - key: GOOGLE_GENERATIVE_AI_API_KEY
+        sync: false
+      - key: NODE_ENV
+        value: production

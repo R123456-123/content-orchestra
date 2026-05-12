@@ -22,8 +22,8 @@ function ContentOrchestraApp() {
     setTimeout(() => setStage('EVALUATOR'), 4000);
 
     try {
-      // NOTE: For live deployment, change this to the deployed Render/Railway URL
-      const response = await fetch('http://localhost:3000/api/orchestrate', {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+      const response = await fetch(`${API_URL}/api/orchestrate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ rawData })
