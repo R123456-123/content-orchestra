@@ -13,17 +13,21 @@ export async function draftContent(brief: ContentBrief, previousFeedback?: strin
     - Target Audience: ${brief.targetAudience}
     - Key Features: ${brief.keyFeatures.join(", ")}
     
-    Keep it under 3 sentences.
+    STRICT WRITING RULES (follow these exactly):
+    - Keep it under 3 sentences.
+    - Use a professional, corporate tone. No slang or casual phrases.
+    - Do NOT use superlatives like "best", "fastest", "revolutionary", "unprecedented", "unparalleled", "game-changing", "lightning", "seismic".
+    - Do NOT use aggressive sales phrases like "Buy now", "Hurry", "Don't miss out", "Get ready".
+    - You MAY use specific metrics from the brief (e.g., "sub-10ms queries") — these are factual.
+    - Focus on clear value, not hype.
     `;
 
     if (previousFeedback) {
         console.log(`[Creator] Applying feedback: ${previousFeedback}`);
         prompt += `\n\n=== STRICT REVISION RULES ===
         Your previous draft FAILED the brand safety check.
-        You MUST adhere to the following rules:
-        - Fix ALL flagged issues exactly as suggested.
-        - Do NOT repeat previous mistakes.
-        - Ensure compliance with ALL brand rules.
+        You MUST fix the following issues EXACTLY as specified.
+        Do NOT introduce new superlatives or unverified claims.
         
         Feedback from Governance:
         ${previousFeedback}
@@ -31,7 +35,7 @@ export async function draftContent(brief: ContentBrief, previousFeedback?: strin
     }
 
     const { text } = await generateText({
-        model: google('gemini-2.5-flash-lite'),
+        model: google('gemini-3.1-flash-lite'),
         temperature: 0.3,
         prompt,
     });
