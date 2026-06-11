@@ -103,7 +103,7 @@ function App() {
   const stat2 = useCountUp(3, 1400);
   const stat3 = useCountUp(mode === 'pro' ? 25 : 10, 1000);
 
-  const timersRef = useRef<NodeJS.Timeout[]>([]);
+  const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const abortControllerRef = useRef<AbortController | null>(null);
 
   const runPipeline = async () => {
@@ -282,14 +282,14 @@ function App() {
           <button 
             className={`mode-btn ${mode === 'classic' ? 'active' : ''}`}
             onClick={() => setMode('classic')}
-            disabled={stage !== 'IDLE' && stage !== 'COMPLETE' && stage !== 'ERROR'}
+            disabled={stage !== 'IDLE' && stage !== 'COMPLETE' && !isError}
           >
             Classic (3 Agents)
           </button>
           <button 
             className={`mode-btn ${mode === 'pro' ? 'active' : ''}`}
             onClick={() => setMode('pro')}
-            disabled={stage !== 'IDLE' && stage !== 'COMPLETE' && stage !== 'ERROR'}
+            disabled={stage !== 'IDLE' && stage !== 'COMPLETE' && !isError}
           >
             Pro (8 Agents)
           </button>
