@@ -25,20 +25,20 @@ What makes it different from a typical ChatGPT wrapper? **Three specialized AI a
          │
          ▼
    ┌──────────────┐
-   │  🔍 Knowledge │  Reads your raw data and extracts a
-   │     Agent     │  structured brief: message, audience, features.
+   │🔍 Knowledge  │  Reads your raw data and extracts a
+   │     Agent    │  structured brief: message, audience, features.
    └──────┬───────┘
           │
           ▼
    ┌──────────────┐
-   │  ✍️  Creator   │  Writes professional marketing copy
-   │     Agent     │◄─── from the brief. Controlled creativity.
+   │  ✍️  Creator │  Writes professional marketing copy
+   │     Agent    │◄─── from the brief. Controlled creativity.
    └──────┬───────┘     │
           │             │  🔄 Feedback loop
           ▼             │  (up to 3 cycles)
    ┌──────────────┐     │
-   │  🛡️ Governance│  Reviews for brand safety, tone,
-   │     Agent     │  and compliance. Flags specific issues.
+   │ 🛡️ Governance│  Reviews for brand safety, tone,
+   │     Agent    │  and compliance. Flags specific issues.
    └──────┬───────┘
           │
     ┌─────┴─────┐
