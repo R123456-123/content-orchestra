@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 
-type PipelineStage = 'IDLE' | 'KNOWLEDGE' | 'CREATOR' | 'EVALUATOR' | 'COMPLETE';
+type PipelineStage = 'IDLE' | 'RESEARCHER' | 'KNOWLEDGE' | 'CREATOR' | 'SEO' | 'EVALUATOR' | 'IDEAS' | 'IMAGE_PROMPT' | 'VIDEO_SCRIPT' | 'COMPLETE';
 
 // ===== Toast Notification System =====
 type ToastType = 'success' | 'error' | 'info';
@@ -92,14 +92,19 @@ const PROMPT_SUGGESTIONS = [
 function App() {
   const [rawData, setRawData] = useState(PROMPT_SUGGESTIONS[0].text);
   const [stage, setStage] = useState<PipelineStage>('IDLE');
+  const [isError, setIsError] = useState(false);
+  const [mode, setMode] = useState<'classic' | 'pro'>('classic');
   const [result, setResult] = useState<any>(null);
   const [copied, setCopied] = useState(false);
   const { toasts, addToast } = useToast();
 
   // Animated counters
-  const stat1 = useCountUp(3, 1200);
+  const stat1 = useCountUp(mode === 'pro' ? 8 : 3, 1200);
   const stat2 = useCountUp(3, 1400);
-  const stat3 = useCountUp(10, 1000);
+  const stat3 = useCountUp(mode === 'pro' ? 25 : 10, 1000);
+
+  const timersRef = useRef<NodeJS.Timeout[]>([]);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   const runPipeline = async () => {
     if (!rawData.trim()) {
@@ -107,19 +112,36 @@ function App() {
       return;
     }
 
-    setStage('KNOWLEDGE');
+    timersRef.current.forEach(clearTimeout);
+    timersRef.current = [];
+
+    setStage(mode === 'pro' ? 'RESEARCHER' : 'KNOWLEDGE');
+    setIsError(false);
     setResult(null);
     addToast('Pipeline started — agents are working...', 'info');
 
-    const timer1 = setTimeout(() => setStage('CREATOR'), 2000);
-    const timer2 = setTimeout(() => setStage('EVALUATOR'), 4000);
+    // Fake visual progress based on mode
+    if (mode === 'classic') {
+      timersRef.current.push(setTimeout(() => setStage('CREATOR'), 2000));
+      timersRef.current.push(setTimeout(() => setStage('EVALUATOR'), 4000));
+    } else {
+      timersRef.current.push(setTimeout(() => setStage('KNOWLEDGE'), 2000));
+      timersRef.current.push(setTimeout(() => setStage('CREATOR'), 4000));
+      timersRef.current.push(setTimeout(() => setStage('SEO'), 6000));
+      timersRef.current.push(setTimeout(() => setStage('EVALUATOR'), 8000));
+      timersRef.current.push(setTimeout(() => setStage('IDEAS'), 11000));
+      timersRef.current.push(setTimeout(() => setStage('IMAGE_PROMPT'), 13000));
+      timersRef.current.push(setTimeout(() => setStage('VIDEO_SCRIPT'), 15000));
+    }
 
     try {
+      abortControllerRef.current = new AbortController();
       const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
       const response = await fetch(`${API_URL}/api/orchestrate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ rawData })
+        body: JSON.stringify({ rawData, mode }),
+        signal: abortControllerRef.current.signal
       });
 
       if (!response.ok) {
@@ -127,18 +149,28 @@ function App() {
       }
 
       const data = await response.json();
-      clearTimeout(timer1);
-      clearTimeout(timer2);
+      timersRef.current.forEach(clearTimeout);
       setStage('COMPLETE');
       setResult(data);
       addToast('Content generated and approved! ✨', 'success');
 
-    } catch (error) {
-      console.error("Pipeline failed", error);
-      clearTimeout(timer1);
-      clearTimeout(timer2);
-      setStage('IDLE');
-      addToast('Failed to connect to backend. Make sure the Fastify server is running!', 'error');
+    } catch (error: any) {
+      timersRef.current.forEach(clearTimeout);
+      setIsError(true);
+      if (error.name === 'AbortError') {
+        addToast('Pipeline aborted by user.', 'error');
+      } else {
+        console.error("Pipeline failed", error);
+        addToast('Failed to connect to backend. Make sure the Fastify server is running!', 'error');
+      }
+    } finally {
+      abortControllerRef.current = null;
+    }
+  };
+
+  const abortPipeline = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
     }
   };
 
@@ -157,12 +189,16 @@ function App() {
   };
 
   const getStepClass = (targetStage: PipelineStage) => {
-    const stages: PipelineStage[] = ['IDLE', 'KNOWLEDGE', 'CREATOR', 'EVALUATOR', 'COMPLETE'];
+    const stages: PipelineStage[] = mode === 'classic'
+      ? ['IDLE', 'KNOWLEDGE', 'CREATOR', 'EVALUATOR', 'COMPLETE']
+      : ['IDLE', 'RESEARCHER', 'KNOWLEDGE', 'CREATOR', 'SEO', 'EVALUATOR', 'IDEAS', 'IMAGE_PROMPT', 'VIDEO_SCRIPT', 'COMPLETE'];
     const currentIndex = stages.indexOf(stage);
     const targetIndex = stages.indexOf(targetStage);
     
     if (currentIndex > targetIndex) return "agent-step step-complete";
-    if (currentIndex === targetIndex) return "agent-step step-active";
+    if (currentIndex === targetIndex) {
+      return isError ? "agent-step step-error" : "agent-step step-active";
+    }
     return "agent-step";
   };
 
@@ -240,6 +276,32 @@ function App() {
         </div>
       </header>
 
+      {/* ===== Mode Toggle ===== */}
+      <div className="mode-toggle-container">
+        <div className="mode-toggle">
+          <button 
+            className={`mode-btn ${mode === 'classic' ? 'active' : ''}`}
+            onClick={() => setMode('classic')}
+            disabled={stage !== 'IDLE' && stage !== 'COMPLETE' && stage !== 'ERROR'}
+          >
+            Classic (3 Agents)
+          </button>
+          <button 
+            className={`mode-btn ${mode === 'pro' ? 'active' : ''}`}
+            onClick={() => setMode('pro')}
+            disabled={stage !== 'IDLE' && stage !== 'COMPLETE' && stage !== 'ERROR'}
+          >
+            Pro (8 Agents)
+          </button>
+        </div>
+        {mode === 'pro' && (
+          <div className="pro-banner">
+            <span className="pro-banner-icon">🧪</span>
+            Pro Mode is under development & evolving
+          </div>
+        )}
+      </div>
+
       {/* ===== Animated Stats Bar ===== */}
       <div className="stats-bar">
         <div className="stat-item" ref={stat1.ref}>
@@ -269,19 +331,21 @@ function App() {
           </div>
           <div className="hiw-arrow">
             <svg width="40" height="16" viewBox="0 0 40 16" fill="none">
-              <path d="M0 8H36M36 8L28 1M36 8L28 15" stroke="url(#arrowGrad)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              <defs><linearGradient id="arrowGrad" x1="0" y1="8" x2="40" y2="8"><stop stopColor="#14F195"/><stop offset="1" stopColor="#9945FF"/></linearGradient></defs>
+              <path d="M0 8H36M36 8L28 1M36 8L28 15" stroke="#A8A29E" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
           </div>
           <div className="hiw-step">
             <div className="hiw-icon">🤖</div>
             <div className="hiw-step-title">2. AI Agents Process</div>
-            <div className="hiw-step-desc">Knowledge → Creator → Governance loop</div>
+            <div className="hiw-step-desc">
+              {mode === 'classic' 
+                ? "Knowledge → Creator → Governance loop" 
+                : "Full 8-Agent orchestration and content studio"}
+            </div>
           </div>
           <div className="hiw-arrow">
             <svg width="40" height="16" viewBox="0 0 40 16" fill="none">
-              <path d="M0 8H36M36 8L28 1M36 8L28 15" stroke="url(#arrowGrad2)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              <defs><linearGradient id="arrowGrad2" x1="0" y1="8" x2="40" y2="8"><stop stopColor="#9945FF"/><stop offset="1" stopColor="#3b82f6"/></linearGradient></defs>
+              <path d="M0 8H36M36 8L28 1M36 8L28 15" stroke="#A8A29E" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
           </div>
           <div className="hiw-step">
@@ -321,23 +385,46 @@ function App() {
             </div>
           </div>
 
-          <button 
-            className="btn-primary" 
-            onClick={runPipeline}
-            disabled={stage !== 'IDLE' && stage !== 'COMPLETE'}
-          >
-            {stage !== 'IDLE' && stage !== 'COMPLETE' ? (
-              <><div className="spinner"></div> Orchestrating...</>
-            ) : (
-              "🎵 Generate Compliant Content"
+          <div style={{ display: 'flex', gap: '1rem' }}>
+            <button 
+              className="btn-primary" 
+              onClick={runPipeline}
+              disabled={stage !== 'IDLE' && stage !== 'COMPLETE' && !isError}
+              style={{ flex: 1 }}
+            >
+              {stage !== 'IDLE' && stage !== 'COMPLETE' && !isError ? (
+                <><div className="spinner"></div> Orchestrating Agents...</>
+              ) : (
+                "▶ Run Orchestration"
+              )}
+            </button>
+
+            {(stage !== 'IDLE' && stage !== 'COMPLETE' && !isError) && (
+              <button 
+                className="btn-primary" 
+                onClick={abortPipeline}
+                style={{ backgroundColor: '#EF4444', flex: '0 0 auto', width: 'auto', paddingLeft: '1.5rem', paddingRight: '1.5rem' }}
+              >
+                ⏹ Abort
+              </button>
             )}
-          </button>
+          </div>
         </div>
 
         <div className="glass-panel">
           <h2 className="panel-title">🧠 Agent Pipeline</h2>
           
           <div className="visualizer">
+            {mode === 'pro' && (
+              <div className={getStepClass('RESEARCHER')}>
+                <div className="step-indicator"></div>
+                <div className="step-content">
+                  <div className="step-title">Researcher Agent</div>
+                  <div className="step-desc">Analyzes industry context, competitors, and trends.</div>
+                </div>
+              </div>
+            )}
+
             <div className={getStepClass('KNOWLEDGE')}>
               <div className="step-indicator"></div>
               <div className="step-content">
@@ -354,6 +441,16 @@ function App() {
               </div>
             </div>
 
+            {mode === 'pro' && (
+              <div className={getStepClass('SEO')}>
+                <div className="step-indicator"></div>
+                <div className="step-content">
+                  <div className="step-title">SEO Agent</div>
+                  <div className="step-desc">Optimizes for search and social engagement.</div>
+                </div>
+              </div>
+            )}
+
             <div className={getStepClass('EVALUATOR')}>
               <div className="step-indicator"></div>
               <div className="step-content">
@@ -361,6 +458,34 @@ function App() {
                 <div className="step-desc">Evaluates for brand safety and compliance.</div>
               </div>
             </div>
+
+            {mode === 'pro' && (
+              <>
+                <div className={getStepClass('IDEAS')}>
+                  <div className="step-indicator"></div>
+                  <div className="step-content">
+                    <div className="step-title">Idea Generator</div>
+                    <div className="step-desc">Brainstorms follow-up campaign content.</div>
+                  </div>
+                </div>
+
+                <div className={getStepClass('IMAGE_PROMPT')}>
+                  <div className="step-indicator"></div>
+                  <div className="step-content">
+                    <div className="step-title">Image Prompt Agent</div>
+                    <div className="step-desc">Designs visual assets and styling prompts.</div>
+                  </div>
+                </div>
+
+                <div className={getStepClass('VIDEO_SCRIPT')}>
+                  <div className="step-indicator"></div>
+                  <div className="step-content">
+                    <div className="step-title">Video Script Agent</div>
+                    <div className="step-desc">Adapts content for short-form vertical video.</div>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
 
           {stage === 'COMPLETE' && result && (
@@ -378,6 +503,28 @@ function App() {
                 <span className="meta-chip">Status: {result.data?.finalStatus}</span>
                 <span className="meta-chip">Attempts: {result.data?.attemptsTaken}</span>
               </div>
+
+              {mode === 'pro' && result.data?.seo && (
+                <div className="pro-output-section">
+                  <h3 className="pro-output-title">SEO Optimization</h3>
+                  <div className="pro-output-content">
+                    <strong>Keywords:</strong> {result.data.seo.keywords.join(', ')}<br/>
+                    <strong>Hashtags:</strong> {result.data.seo.hashtags.join(' ')}<br/>
+                    <strong>Best Time:</strong> {result.data.seo.bestPostingTime}
+                  </div>
+                </div>
+              )}
+
+              {mode === 'pro' && result.data?.imagePrompt && (
+                <div className="pro-output-section">
+                  <h3 className="pro-output-title">Image Generation Prompt</h3>
+                  <div className="pro-output-content" style={{ fontStyle: 'italic' }}>
+                    "{result.data.imagePrompt.imagePrompt}"
+                    <br/><br/>
+                    <span className="meta-chip">Style: {result.data.imagePrompt.style}</span>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -437,42 +584,40 @@ function App() {
             },
           ].map((feature, i) => (
             <div className="roadmap-card" key={i} style={{ animationDelay: `${i * 0.08}s` }}>
-              <div className="roadmap-card-icon">{feature.icon}</div>
-              <div className="roadmap-card-tag">{feature.tag}</div>
-              <h3 className="roadmap-card-title">{feature.title}</h3>
-              <p className="roadmap-card-desc">{feature.desc}</p>
-              <span className="coming-soon-badge">Coming Soon</span>
+              <span className="roadmap-icon">{feature.icon}</span>
+              <h3>{feature.title}</h3>
+              <p>{feature.desc}</p>
             </div>
           ))}
         </div>
 
         {/* Phase 3 Teaser */}
-        <div className="phase3-teaser">
-          <div className="phase3-header">
-            <h3 className="phase3-title">
-              <span className="roadmap-icon">🔮</span>
-              On the Horizon
-            </h3>
-            <span className="roadmap-phase-badge phase3-badge">Phase 3</span>
-          </div>
-          <div className="phase3-grid">
-            {[
-              { icon: '🔐', title: 'Authentication', desc: 'Secure user accounts with Clerk' },
-              { icon: '🗄️', title: 'Database', desc: 'Persistent storage with Supabase' },
-              { icon: '📅', title: 'Content Calendar', desc: 'Visual scheduling & planning' },
-              { icon: '📈', title: 'Analytics Dashboard', desc: 'AI-powered performance insights' },
-              { icon: '🔗', title: 'Platform Integrations', desc: 'Direct publishing via OAuth' },
-              { icon: '🎯', title: 'Brand Kit', desc: 'Custom voice & compliance rules' },
-            ].map((item, i) => (
-              <div className="phase3-card" key={i} style={{ animationDelay: `${i * 0.06}s` }}>
-                <span className="phase3-card-icon">{item.icon}</span>
-                <div>
-                  <div className="phase3-card-title">{item.title}</div>
-                  <div className="phase3-card-desc">{item.desc}</div>
-                </div>
-              </div>
-            ))}
-          </div>
+        <div className="roadmap-header" style={{ marginTop: '5rem' }}>
+          <h2 className="roadmap-title">
+            <span className="roadmap-icon" style={{ marginBottom: 0 }}>🔮</span>
+            On the Horizon
+          </h2>
+          <span className="roadmap-phase-badge">Phase 3</span>
+        </div>
+        <p className="roadmap-subtitle">
+          Expanding into a full-scale enterprise product with user accounts, databases, and direct publishing.
+        </p>
+
+        <div className="roadmap-grid">
+          {[
+            { icon: '🔐', title: 'Authentication', desc: 'Secure user accounts with Clerk integration.' },
+            { icon: '🗄️', title: 'Database', desc: 'Persistent storage for generated content with Supabase.' },
+            { icon: '📅', title: 'Content Calendar', desc: 'Visual scheduling & planning for your campaigns.' },
+            { icon: '📈', title: 'Analytics Dashboard', desc: 'AI-powered performance insights on published posts.' },
+            { icon: '🔗', title: 'Platform Integrations', desc: 'Direct publishing via OAuth to LinkedIn and Twitter.' },
+            { icon: '🎯', title: 'Brand Kit Settings', desc: 'Custom voice and compliance rules per organization.' },
+          ].map((item, i) => (
+            <div className="roadmap-card" key={i} style={{ animationDelay: `${i * 0.08}s` }}>
+              <span className="roadmap-icon">{item.icon}</span>
+              <h3>{item.title}</h3>
+              <p>{item.desc}</p>
+            </div>
+          ))}
         </div>
       </section>
 
@@ -487,17 +632,23 @@ function App() {
           </div>
           <div className="footer-links">
             <div className="footer-col">
-              <h4 className="footer-col-title">Project</h4>
-              <span className="footer-link">B.Tech Major Project — 2026</span>
-              <span className="footer-link">Multi-Agent AI System</span>
-              <a className="footer-link footer-link-active" href="https://github.com/R123456-123/content-orchestra" target="_blank" rel="noopener noreferrer">
-                GitHub Repository ↗
-              </a>
+              <h4>Project</h4>
+              <ul>
+                <li style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>B.Tech Major Project — 2026</li>
+                <li style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Multi-Agent AI System</li>
+                <li>
+                  <a href="https://github.com/R123456-123/content-orchestra" target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '1rem', color: 'var(--accent)' }}>
+                    GitHub Repository ↗
+                  </a>
+                </li>
+              </ul>
             </div>
             <div className="footer-col">
-              <h4 className="footer-col-title">Developers</h4>
-              <span className="footer-link">Yash Choudhary</span>
-              <span className="footer-link">Rishiraj Tanwar</span>
+              <h4>Developers</h4>
+              <ul>
+                <li style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Yash Choudhary</li>
+                <li style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Rishiraj Tanwar</li>
+              </ul>
             </div>
           </div>
         </div>
